@@ -63,5 +63,9 @@ do wr (СОХРАНЕНИЕ)
 line vty 0 15
 transport input ssh 
 
+## Настройкао консольного порта
+line console 0
+Login local // задаем локальный пароль
+
 ## Выход
 exi
