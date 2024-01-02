@@ -67,5 +67,26 @@ transport input ssh
 line console 0
 Login local // задаем локальный пароль
 
+## Создание VLAN
+Войти в настройки conf t
+- vlan  и номер 
+- name имя vlan // задавем имя 
+- show vlan
+- -show vlan br
+  
+## настройка портов и привяка в Vlan
+- int f0/1 // Выбираем порт для конфигурации
+- switchport mode access // режим доступности порта
+- switchport access vl 10  // добавляем потр к нудному vlan
+  
+## Перевод в транковый порт(trunk)
+- int f0/4 выбираем порт
+- switchport mode trunk
+- switchport trunk all vl 10,20,30 //  укалываем какие vlan передавать через это порт
+- switchport trunk all vl add 40 // добавить к существующим
+- witchport trunk all vl remove 40 // Убрать.
+-  show int trunk // посмотреть какие порты vlan пердаються
+
+
 ## Выход
-exi
+exit
