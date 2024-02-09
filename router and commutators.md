@@ -95,6 +95,7 @@ Login local // задаем локальный пароль
 ## Настройка динамической маршрутизации RIP
 - router rip
 - version 2
+- no auto-summary //отключаем автоматическое суммирование маршрутов
 - network <классовая сеть>
 
 ## Настройка IP V6
@@ -102,6 +103,17 @@ Login local // задаем локальный пароль
 - ipv6 address 2001::/64 eui-64
 - Router(config)#unicast-routing
   
+
+## Основнае команды на коммутарорах
+- show running config
+- show vlan
+- show vlan brief
+- show interfaces trunk
+- show ip route
+- show interfaces
+- show run interfaces (нет в симуляторе)
+- show mac-address table
+- show arp
 
 ## Выход
 exit
