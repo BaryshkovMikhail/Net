@@ -116,6 +116,7 @@ Login local // задаем локальный пароль
 - show run interfaces (нет в симуляторе)
 - show mac-address table
 - show arp
+- show ip arp // чьи arp запросы дошли до шлюза
 
 ## Определение информации о соседях
 - show cdp neighbors detail // работает только на cisco
