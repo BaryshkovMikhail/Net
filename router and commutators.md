@@ -81,12 +81,12 @@ Login local // задаем локальный пароль
   
 ## Перевод в транковый порт(trunk)
 - int f0/4 выбираем порт или int range f0/2-3 // диапазон портов
-- switchport trunk encapsulation dotlg  //для старых cisco
+- switchport trunk encapsulation dot1g  //для старых cisco
 - switchport mode trunk
-- switchport trunk all vl 10,20,30 //  укалываем какие vlan передавать через это порт
+- switchport trunk all vl 10,20,30 //  указываем какие vlan передавать через это порт
 - switchport trunk all vl add 40 // добавить к существующим
 - switchport trunk all vl remove 40 // Убрать.
-- show int trunk // посмотреть какие порты vlan пердаються
+- show int trunk // посмотреть какие порты vlan передаються
 
 ## Настройка статического маршрута на маршрутизаторе
 - ip routing // включение маршрутизации на коммнутаторе
@@ -117,5 +117,30 @@ Login local // задаем локальный пароль
 - show mac-address table
 - show arp
 
+## Определение информации о соседях
+- show cdp neighbors detail // работает только на cisco
+- lldp run
+- show lldp neighbors detail // работает на всехвендорах
+
+## Ограничение DHCP через комутатор
+- ip dhcp snooping trust // сделать на выбраннос интерфейсе
+- ip dhcp snooping // в настройки конфигурации сключаем функцию глобально
+- ip dhcp snooping vlan 1 // указывает для какого vlan будет работь
+  
+## Ускорение работы протакола SPT
+- spanning-tree mode rapid-pvst // в режиме конфигурации настроить на обоих коммутаторах. Ускоряет переключение между линиями.
+- show spanning-tree //показать какие заблокированы порты
+
+## Агрегирование портов на коммутаторах
+- interface range fa0/1-2 // в режиме конфигурации выбираем 2 порта
+- channel-group 1 mode on //объединение портов в одну группу. Сделать на обоих коммутаторах.
+
+## указания шлюза по умолчанию для коммутароров
+- ip default-gateway 10.10.0.195
+
+## Настройка шлюха по умочанию на 2- разных маршрутизаторах
+- standby 1(номер группы) ip 10.10.10.254 // в редимен настройки порта указать вертуальный IP
+- 
+
+
 ## Выход
-exit
