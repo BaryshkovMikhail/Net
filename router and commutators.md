@@ -80,14 +80,16 @@ Login local // задаем локальный пароль
 - switchport access vl 10  // добавляем потр к нудному vlan
   
 ## Перевод в транковый порт(trunk)
-- int f0/4 выбираем порт
+- int f0/4 выбираем порт или int range f0/2-3 // диапазон портов
+- switchport trunk encapsulation dotlg  //для старых cisco
 - switchport mode trunk
 - switchport trunk all vl 10,20,30 //  укалываем какие vlan передавать через это порт
 - switchport trunk all vl add 40 // добавить к существующим
-- witchport trunk all vl remove 40 // Убрать.
--  show int trunk // посмотреть какие порты vlan пердаються
+- switchport trunk all vl remove 40 // Убрать.
+- show int trunk // посмотреть какие порты vlan пердаються
 
 ## Настройка статического маршрута на маршрутизаторе
+- ip routing // включение маршрутизации на коммнутаторе
 - ip ruote 192.168.1.0 255.255.255.0(целевая сеть) 10.1.1.254 (следующий щлюз) 10 (административная дистанция)
 - show ip route // показать текущие маршруты
 - no ip ruote 192.168.1.0 255.255.255.0 10.1.1.254 // удаление маршрута
