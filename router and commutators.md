@@ -19,6 +19,14 @@ no service password-encryption (Отменяет шифрование парол
 
 username ИМЯ secret ПАРОЛЬ (сразу за шифрован пароль)
 
+## Настройка привилегированного режима доступа
+enable secret <pswd> 
+
+# Настройка использования локальных учётных данных для аутентификации
+aaa <название>
+aaa authentication login default local 
+aaa authentication enable default enable # Настройка аутентификации в привилегированном режиме
+
 ## Показать список пользователей
 do sh run
 
@@ -26,6 +34,7 @@ do sh run
 
 line vty 0 15
 login local
+transport input ssh # Настройка возможности удалённого подключения к VTY по SSH
 
 ## Обязательно устанавливаем пароль для привилегированного режима:
 enable secret пароль
@@ -33,7 +42,8 @@ enable secret пароль
 username ИМЯ privilage 15 secret ПАРОЛЬ
 
 ## Для SSH Генерируем ключ
-crypto key generate rsa
+crypto key generate rsa general-keys modulus 2048
+ip ssh version 2 # Включение SSH-сервера
 How many bits in the modulus [512]: до 2048
 
 ## Настраиваем IP-адрес, если он не был настроен ранее:
@@ -133,9 +143,12 @@ Login local // задаем локальный пароль
 - encapsulation dot1q 100
 - ip address (ip address mask) // задаем адрес и сакру для саб интерфейс
   
-## Ускорение работы протакола SPT
+## Ускорение работы протакола STP
 - spanning-tree mode rapid-pvst // в режиме конфигурации настроить на обоих коммутаторах. Ускоряет переключение между линиями.
 - show spanning-tree //показать какие заблокированы порты
+- spanning-tree vlan <vlan_list> priority <priority> # Включение PVRST во всех VLAN и назначение приоритета для рута
+- spanning-tree bpduguard enable # Включение фильтрации BPDU на портах конечных устройств
+- spanning-tree portfast # Настройка режима portfast на портах доступа
 
 ## Агрегирование портов на коммутаторах
 - interface range fa0/1-2 // в режиме конфигурации выбираем 2 порта
@@ -145,8 +158,9 @@ Login local // задаем локальный пароль
 - ip default-gateway 10.10.0.195
 
 ## Настройка шлюха по умочанию на 2- разных маршрутизаторах
-- standby 1(номер группы) ip 10.10.10.254 // в редимен настройки порта указать вертуальный IP
-- 
+- standby 1(номер группы) ip 10.10.10.254 // в режиме настройки порта указать вертуальный IP
 
+## Включение storm-control в контексте конфигурирования порта  
+storm-control broadcast level <0.0 - 100.0> 
 
 ## Выход
