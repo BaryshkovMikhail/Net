@@ -234,5 +234,328 @@ storm-control broadcast level <0.0 - 100.0>
 - show ip ospf neighbor //Показывает информацию о протоколе, в том числе Router ID
 - show ip ospf interface //Показывает существующих соседей и их состояния:
 - show ip ospf database //Показывает информацию об OSPF-интерфейсах:
+
+## Витуальный канал для OSPF для соединения ARIA
+- router ospf 1  // Наройтере стыковом
+- aria 12 virtual-link 172.16.1.1 // Указываем aria через которую будем проходить и id(ip) роутера на выходе. Так же делаем с противоположной стороны.
+
+## BGP
+
+- R1(config-router)#neighbor <ip-address | peer-group-name> remote-as <as-number>
+
+# Настройка BGP-соседства
+R1(config)#router bgp 110
+R1(config-router)#neighbor 5.5.5.5 remote-as 110
+R1(config-router)#neighbor 5.5.5.5 update-source loopback0
+
+# Опция eBGP multihop
+R1(config-router)# neighbor <ip-address | peer-group-name> ebgp-multihop [ttl]
+С помощью настройки eBGP multihop вы указываете максимальное количество
+допустимых прыжков. Это пропускает проверку BGP для TTL на значение равное 1:
+По умолчанию BGP проверяет, находится ли eBGP-сосед в непосредственно
+присоединённой сети локального маршрутизатора.
+Эту проверку отключает параметр disable-connected-check
+
+# BGP-аутентификация 
+Аутентификация с шифрованием Message Digest 5 (MD5) — это результат простогозадания пароля на устройствах:
+R1(config#router bgp 220
+R1(config-router)#neighbor 8.8.8.8 remote-as 110
+R1(config-router)#neighbor 8.8.8.8 update-source loopbackO
+R1(config-router)#neighbor 8.8.8.8 ebgp-multihop 2
+R1(config-router)#neighbor 8.8.8.8 password MySuperSecret121
+R1(config-router)#end
+
+# Route-map
+Например:
+● Пакеты, прибывающие из источника с адресов 1.1.1.1, направляются на адрес 192.168.1.1
+● Пакеты, прибывающие из источника с адресом 2.2.2.2, направляются на адрес 192.168.2.2
+access-list 1 permit host 1.1.1.1
+access-list 2 permit host 2.2.2.2
+route-map BGP1 permit 10
+match ip address 1
+set ip default next-hop 192.168.1.1
+route-map BGP2 permit 20
+match ip address 2
+set ip default next-hop 192.168.2.2
+Если маршрутизатор не имеет никакого явного маршрута для этих пакетов
+
+## BGP Управление трафиком
+# AS-path acl 
+С помощью AS-path acl вы можете, например, запретить принимать анонсы маршрутов, принадлежащих AS200.
+«.» — любой символ, включая пробел;
+«*» — ноль или больше совпадений с выражением;
+«+» — одно или больше совпадений с выражением;
+«?» — ноль или одно совпадение с выражением;
+«^» — начало строки;
+«$» — конец строки;
+«_» — любой разделитель, включая начало, конец, пробел;
+«\» — не воспринимать следующий символ как специальный;
+«[ ]»— совпадение с одним из символов в диапазоне;
+«|»— логическое «или»
+Чтобы стало понятнее, приведём несколько примеров.
+
+127 — маршруты, проходящие через AS127. До и после номера AS идут знаки «_», означающие, что в AS-path номер 200 может стоять в начале, середине или конце, главное, чтобы он был;
+^127$ — маршруты из соседней AS127. «^» означает начало списка, а «$» – конец. То есть в AS-path всего один номер AS – это означает, что маршрут был зарождён в AS127 и оттуда сразу был передан нам;
+127$ — маршруты, отправленные из AS127. «$» означает конец списка, то есть это самая первая AS, из неё маршрут и зародился, знак «» говорит о том, что неважно, что находится дальше, хоть ничего, хоть семь других AS;
+^127_ — сети, находящиеся за AS127. Знак «^» означает, что ASN 200 была добавлена последней, то есть маршрут к нам пришёл из AS200, но это не значит, что родился он в ней же. Знак «_» говорит о том, что это может быть конец списка, а может быть пробел перед следующей AS;
+^$ — маршруты локальной AS. Список AS-path пуст, значит, маршрут локальный, сгенерированный внутри нашей AS.
+
+Создаём AS-path acl.
+- ip as-path access-list 200 deny _200_
+- ip as-path access-list 200 permit .*
+- neighbor 30.30.30.1 filter-list 200 in  // filter-list это тот же access-list, анонсы настречу трафику
+
+# Префикс-листы — это привычные нам сеть или маска, и мы указываем, разрешить такие маршруты или нет.
+Синтаксис команды:
+
+ip prefix-list {list-name} [seq {value}] {deny|permit} {network/length} [ge {value}] [le {value}], где:
+
+- list-name — название списка. Обычно указывается, как name_in или name_out. Это подсказывает нам, на входящие или исходящие маршруты он будет действовать, но, конечно, на этом этапе никак не определяет;
+- seq — порядковый номер правила, как в acl, чтобы проще было оперировать с ними;
+- deny/permit — определяем, разрешать такой маршрут или нет;
+- network/length— привычная для нас запись, вроде 192.168.14.0/24.
+Дальше возможны ещё два параметра:
+- ge и le — это означает «greater or equal» и «less or equal». То есть вы можете задать не только один конкретный префикс, но и их диапазон.
+Например, запись типа:
+ip prefix-list test-in seq 10 permit 100.100.100.0/23 ge 24 le 29 —
+означает, что под действие prefix-list попадают маршруты длиной от 24 до 29, входящие в 100.100.100.0/23.
+Например, 100.100.101.0/24, 100.100.100.0/26, 100.100.101.56/29.
+neighbor 30.30.30.1 prefix-list as300-out out
+
+# Route-map — это инструмент для выборочного применения правил к только определённым маршрутам. AS-path acl и prefix-list позволяют управлять сразу всеми анонсами, полученными или анонсируемыми конкретному пиру, а route-map позволяет отфильтровать конкретные маршруты по тому или иному признаку. У других вендоров route-map может называться route-policy или route-filter.
+
+Синтаксис команды следующий:
+
+route-map {map_name} {permit|deny} {seq}
+[match {expression}]
+[set {expression}], где:
+
+- map_name – имя карты;
+permit/deny – разрешаем или нет прохождение данных, подпадающих под условия route-map;
+seq – номер правила в route-map;
+match – условие подпадания трафика под это правило. Expression: критерий.
+Команда конфигурации:
+Network/mask match ip address prefix-list;
+AS-path match as-path;
+BGP community match community;
+Route originator match ip route-source;
+BGP next-hop address match ip next-hop.
+- set– что сделать с отфильтрованными маршрутами. Expression: параметры.
+Команда конфигурации:
+AS path prepend set as-path prepend;
+Weight set weight;
+Local Preference set local-preference;
+BGP community set community;
+MED set metric;
+Origin set origin;
+BGP next-hop set next-hop.
+
+Пример
+
+В указанной топологии при анонсах сети 100.100.100.0/24 искуственно увеличим AS-path.
+Создадим prefix-list AS300.
+- ip prefix-list AS300 permit 100.100.100.0/24
+Prefix-list содержит только одно правило. Следующим правилом будет неявное правило deny. Это значит, что под конкретное правило нашей карты маршрутов попадёт только анонс сети 100.100.100.0/24.
+Создадим route-map AS300-out и применим его к пиру.
+- route-map AS300-uot permit 10
+- match ip address prefix-list AS300
+- set as-path prepend 100 100 100
   
+## Управление исходящим трафиком
+
+# Использовать атрибут weight
+
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 weight 200  // По-умолчанию = 0. Чем больше значение атрибута, тем более предпочтительный маршрут.
+
+Либо:
+
+R1(config)#route-map weight-200
+R1(config-route-map)#set weight 200
+
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 route-map weight-200 in
+
+# Local Preference. Пример настройки
+Замена значения по умолчанию:
+R1(config)#router bgp 100
+R1(config-router)#bgp default local-preference <0-4294967295>
+Назначение на маршруты, выбранные с помощью route-map:
+R1(config)#route-map local-pref-200
+R1(config-route-map)#set local-preference 500
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 route-map local-pref-200 in
+
+# При использовании MED есть следующие нюансы:
+
+По умолчанию MED на анонсах из разных AS не сравнивается. Правда, есть метод это изменить.
+
+Чем больше MED, тем маршрут менее предпочтительный.
+
+MED передаётся в соседнюю AS, но только в первую, т. е. ту, которая имеет соседство с вами.
+
+Пункт 1 больше всего влияет на политики, где используется MED для распределения исходящего трафика.
+
+- При использовании AS-path также есть нюанс: AS-path — транзитивный атрибут. Если выявляется транзитной AS, то все ваши клиенты или пиры получат маршрут с модифицированным вами AS-path.
+
+Настраивается изменение MED и AS-path также через route-map.
+На примере MED:
+
+R1(config)#route-map med-200
+R1(config-route-map)#set metric 200
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 route-map med-200 in
+
+# Балансировка
+Трафик можно балансировать до одной и той же сети назначения по разным каналам.
+Есть некоторые условия, которые должны быть выполнены для осуществления балансировки.
+
+Совпадение атрибутов:
+weight;
+Local Preference;
+AS-path — не длина, а весь путь. Это значит, что не только количество AS должно совпадать но и номера и порядок AS, т. е. по умолчанию балансировка работает только с маршрутами, полученными от одного провайдера;
+origin code;
+MED;
+IGP metric.
+Next hop — маршрутизатор для каждого из маршрутов должен быть разным.
+Настраивается:
+
+R1(config)#router bgp 100
+R1(config-router)#maximum-paths 2
+
+Чтобы обойти ограничение на совпадение AS-path, можно использовать скрытую команду:
+
+R1(config)#router bgp 100
+R1(config)#bgp bestpath as-path multipath-relax
+
+По умолчанию не учитывается разница пропускной способности разных каналов, можно включить такую опцию:
+
+router bgp 100
+bgp dmzlink-bw
+neighbor 20.20.20.1 dmzlink-bw
+neighbor 30.30.30.1 dmzlink-bw
+
+# Управление входящим трафиком
+
+- AS-path prepend
+R1(config)#route-map as-prepend-x3
+R1(config-route-map)#set as-path prepend 100 100 100
+
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 route-map as-prepend-x3 out
+
+# Анонс разных сетей разным операторам
+Допустим, в нашей AS100 порождается сеть 100.100.100.0/23. У нас есть 2 стыка с AS200 и AS300, и для распределения нагрузки по входящему трафику мы можем:
+
+распилить /23 сеть на 2 /24;
+в один стык анонсировать 1 /24, в другой — другую;
+в оба стыка анонсировать более общую /23.
+
+Настраивается это так:
+
+R1(config)#router bgp 100
+R1(config-router)#network 100.100.100.0 mask 255.255.255.0
+R1(config-router)#network 100.100.101.0 mask 255.255.255.0
+R1(config-router)#network 100.100.100.0 mask 255.255.254.0
+R1(config)#ip route 100.100.100.0 255.255.255.0 Null0
+R1(config)#ip route 100.100.101.0 255.255.255.0 Null0
+R1(config)#ip route 100.100.100.0 255.255.254.0 Null0
+
+Конфигурация для R2 идентичная.
+
+R1(config)#ip prefix-list net-to-as200 permit 100.100.100.0/24
+R1(config)#ip prefix-list net-to-as200 permit 100.100.100.0/23
+
+R2(config)#ip prefix-list net-to-as300 permit 100.100.101.0/24
+R2(config)#ip prefix-list net-to-as300 permit 100.100.100.0/23
+R1(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 remote-as 200
+R1(config-router)#neighbor 20.20.20.1 prefix-list net-to-as200 out
+
+R2(config)#router bgp 100
+R2(config-router)#neighbor 30.30.30.1 remote-as 300
+R2(config-router)#neighbor 30.30.30.1 prefix-list net-to-as300 out
+
+# BGP community
+Чтобы применить community к анонсам из своей AS, достаточно в route-map выполнить set:
+
+R3(config)#route-map community-set
+R3(config-route-map)#set community 200:200 additive
+
+R3(config)#router bgp 100
+R1(config-router)#neighbor 20.20.20.1 send-community
+R3(config-router)#neighbor 20.20.20.1 route-map community-set out
+
+Community. Создание community-list
+Стандартный community-list:
+ip community-list <1-99> <permit | deny> <value>
+Пример:
+ip community-list 1 deny 100:37
+ip community-list 1 permit 0:0
+Расширенный community-list:
+ip community-list <100-199> <permit | deny> <regexp>
+ip community-list 200 deny [1-0]+:[1-3][2-2]
+ip community-list 200 permit [3-4]00:0
+
+# Community. Применение
+Настройка community для обработки маркированных маршрутов:
+R3(config)#ip bgp-community new-format
+R3(config)#ip community-list standard loc-pref-100 permit
+100:100
+R3(config)#route-map client-loc-pref-in
+R3(config-route-map)#match community loc-pref-100
+R3(config-route-map)#set local-preference 100
+R3(config)#router bgp 200
+R3(config-router)#neighbor 20.20.20.2 route-map
+client-loc-pref-in in
+
+# Как обрабатывать входящие анонсы с community
+
+R3(config)#ip community-list standard loc-pref-100 permit 100:100
+
+R3(config)#route-map client-loc-pref-in
+R3(config-route-map)#match community loc-pref-100
+R3(config-route-map)#set local-preference 100
+
+R3(config)#router bgp 200
+R3(config-router)#neighbor 20.20.20.2 route-map client-loc-pref-in in
+
+## Оптимизация iBGP
+
+Как можно улучшить ситуацию
+
+# Peer group позволяет объединять соседей в группы и одной командой задавать нужные параметры сразу всем.
+Настраивается так:
+
+R1(config)#router bgp 200
+R1(config-router)#neighbor AS200 peer-group
+R1(config-router)#neighbor AS200 remote-as 200
+R1(config-router)#neighbor AS200 update-source Loopback0
+R1(config-router)#neighbor AS200 next-hop-self
+R1(config-router)#neighbor 10.10.10.2 peer-group AS200
+R1(config-router)#neighbor 10.10.10.3 peer-group AS200
+R1(config-router)#neighbor 10.10.10.4 peer-group AS200
+
+В конфигурации выше мы создали peer-group AS200. Общие для всех участников группы параметры:
+
+update-source,
+
+next-hop-self,
+
+remote-as.
+
+В группу мы добавили 3 пира: 10.10.10.2, 10.10.10.3 и 10.10.10.4.
+
+#  Route Reflector
+R1(config)#router bgp 200
+R1(config-router)#neighbor AS200 peer-group
+R1(config-router)#neighbor AS200 remote-as 200
+R1(config-router)#neighbor AS200 update-source Loopback0
+R1(config-router)#neighbor AS200 route-reflector-client
+R1(config-router)#neighbor 10.10.10.2 peer-group AS200
+R1(config-router)#neighbor 10.10.10.3 peer-group AS200
+R1(config-router)#neighbor 10.10.10.4 peer-group AS200
+
+В конфигурации выше мы определили, что пиры 10.10.10.2, 10.10.10.3 и 10.10.10.4 — это клиенты route reflector.
+
 ## Выход
