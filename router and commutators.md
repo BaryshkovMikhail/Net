@@ -558,4 +558,200 @@ R1(config-router)#neighbor 10.10.10.4 peer-group AS200
 
 В конфигурации выше мы определили, что пиры 10.10.10.2, 10.10.10.3 и 10.10.10.4 — это клиенты route reflector.
 
+## Передача данных между протаколами маршрутизации
+
+# Чтобы запустить процесс редистрибуции в OSPF, необходимо использовать команду:
+Router(config-router)#redistribute ?
+- bgp Border Gateway Protocol (BGP)  //connected Connected
+- eigrp //Enhanced Interior Gateway Routing Protocol (EIGRP)
+- isis //ISO IS-IS
+- ospf //Open Shortest Path First (OSPF)
+- ospfv3 //OSPFv3
+- rip //Routing Information Protocol (RIP)
+- static //Static routes
+
+В команде необходимо указать источник маршрутной информации. Это может быть как другой протокол (eigrp, bgp и т. д.), так и статические (static) или сети подключённых интерфейсов (connected)
+
+Пример:
+R1#show ip route static
+10.0.0.0/24 is subnetted, 4 subnets
+S 10.10.0.0 [1/0] via 192.168.1.1
+S 10.10.1.0 [1/0] via 192.168.1.1
+S 10.10.2.0 [1/0] via 192.168.1.1
+S 10.10.3.0 [1/0] via 192.168.1.1
+R1(config)#router ospf 1
+R1(config-router)#redistribute static
+
+R3(config)#router ospf 1
+Router(config-router)#redistribute bgp 12345
+
+# Опции редистрибуции в OSPF
+R3(config-router)#redistribute bgp 12345 ?
+- metric //Metric for redistributed routes позволяет задать метрику для маршрута вручную
+- metric-type // OSPF/IS-IS exterior metric type for redistributed routes выбор 1 или 2. OSPF External Type 2 metrics — тип метрики, который использует стоимость внешнего маршрута:
+при передаче по сети стоимость не увеличивается. OSPF External Type 1 metrics в этом случае будет использовать: метрику внешнего маршрута + метрику до ASBR, которую передал маршрут + метрику до ABR, которую
+передал внешний маршрут в другую зону.
+- nssa-only //Limit redistributed routes to NSSA areas редистрибуция из специальной тупиковой зоны
+- route-map //Route map reference фильтрация редистрибуции при помощи политик
+- subnets Consider subnets for redistribution into OSPF опция добавляется автоматически. На старых версиях без этой опции происходила
+- tag  //Set tag for routes redistributed into OSPF использование метки для маршрутов
+
+# Конфигурация типа зоны
+R1(config-router)#area 10 stub  //Stub area — тупиковая зона
+R1(config-router)#area 10 stub no-summary // Totally stubby area
+R1(config-router)#area 10 nssa // Not-so-stubby area (NSSA)
+R1(config-router)#area 10 nssa no-summary // Totally NSSA
+
+
+## Методы контроля и управления доступом к сети
+
+# Port security
+Конфигурация port security производится на интерфейсе. Активирование:
+
+Switch(config)#interface gigabitEthernet 0/1
+Switch(config-if)#switchport port-security
+
+Конфигурация разрешенных MAC-адресов:
+
+Switch(config-if)#switchport port-security mac-address ?
+
+- H.H.H Статическое задание разрешенного MAC-адреса
+- forbidden Статическое задание запрещенного MAC-адреса
+- sticky Динамическое изучение подключенных к интерфейсу MAC-адресов
+
+Задание максимального количество допустимых MAC-адресов:
+
+Switch(config-if)#switchport port-security maximum // <1-4097> Maximum addresses
+Задание времени хранения в конфигурации динамически изученных sticky MAC-адресов:
+Switch(config-if)#switchport port-security aging time  // <1-1440> Aging time in minutes. Enter a value between 1 and 1440
+
+Если MAC-адрес в течение заданного времени неактивен, адрес удаляется из конфигурации
+
+Настройка реакции на нарушение политик:
+
+Switch(config-if)#switchport port-security violation ?
+- protect Security violation protect mode
+- restrict Security violation restrict mode
+- shutdown Security violation shutdown mode
+
+● Protect — когда количество MAC-адресов достигает предела и появился неизвестный MAC-адрес,
+пакеты с неизвестными адресами отбрасываются. Уведомление о нарушении безопасности
+в этом случае отсутствует
+● Restrict — Protect mode, но при этом отправляются SNMP-уведомления о нарушении политик
+● Shutdown — переводит порт в состояние error-disable. Никакой трафик не передаётся, пока интерфейс
+не выйдет из этого состояния. Можно настроить таймер для error-disable recovery, чтобы восстановить
+состояние порта через определённое время
+
+show port-security interface Fa0/1  команда показывает общую настройку port security
+show port-security address — команда показывает только статически и динамически разрешённые адреса
+
+
+## Конфигурация dot1x на Cisco
+# Активирование aaa-сервисов и конфигурация RADIUS-сервера:
+Switch(config)#aaa new-model Включение aaa-сервисов
+Switch(config)#radius server server_name Создание Radius-сервера
+Switch(config-radius-server)#address ipv4 192.168.1.111 auth-port 1645 acct-port ?
+<0-65535> Port number Задание IP-адреса и портов для аутентификации (auth) и учёта (acct)
+Switch(config-radius-server)#key // 0 Specifies an UNENCRYPTED key will follow, 7 Specifies HIDDEN key will follow
+LINE The UNCRYPTED (cleartext) shared key
+Switch(config-radius-server)#key 0 radius_key Задание пароля
+
+# Глобальная конфигурация dot1x-сервисов и серверов:
+
+Switch(config)#dot1x system-auth-control Глобальное активирование dot1x
+Switch(config)#aaa authentication dot1x default ?
+group Использование группы Radius-сервер
+local Использование локальной базы пользователей
+Switch(config)#aaa authentication dot1x default group radius local
+Задание последовательности использования источников:
+1. radius cервера
+2. local использование локальной базы при недоступности Radius-сервера
+
+# Конфигурация порта для обмена сообщениями EAP и перевод в режим authenticator:
+Switch(config)#interface Fa0/0
+Switch(config-if)#authentication port-control auto
+Задаёт режим auto, в котором порт сразу после поднятия будет автоматически обмениваться EAP-сообщениями с подключённым устройством
+Switch(config-if)#dot1x pae authenticator //Задаёт роль порта как authenticator. Также порт может выступать в роли supplicant или both (authenticator + supplicant)
+
+## Ролевая модель доступа
+# Технологию RBAC можно настроить локально на свитче при помощи функции parser view
+Switch(config)#parser view view_name Задание имени view
+Switch(config-view)#?
+- commands Задание команд свитча
+- secret Задание пароля для view
+Switch(config-view)#commands command_type ?
+- exclude Запретить использование команды в этом view
+- include Разрешить использование команды в этом view
+- include-exclusive Разрешить в этом view, но исключить из других view
+
+Switch(config)#parser view vlan_change_view //Задаём имя view
+Switch(config-view)#secret password1 //Задаём пароль для этого view
+Switch(config-view)#commands exec include all configure //Разрешаем команду configure в Exec mode
+Switch(config-view)#commands configure include all interface //Разрешаем заходить в конфигурацию интерфейсов
+Switch(config-view)#commands interface include switchport access vlan //Разрешаем команду switchport access vlan в Interface mode
+
+## Конфигурация DHCP snooping
+Глобальная активация DHCP snooping на свитче:
+
+Switch(config)#ip dhcp snooping
+Switch(config)#ip dhcp snooping vlan 10 //Активация DHCP snooping на свитче для определённого vlan:
+
+Конфигурация trust-портов:
+Switch(config)#interface Fa0/0
+Switch(config-if)#ip dhcp snooping trust 
+
+Конфигурация untrust-портов отсутствует, так как при включении ip dhcp snooping все порты становятся untrust-портами
+
+# Включение или отключение DHCP option:
+Switch(config)#ip dhcp snooping information option
+Switch(config)#no ip dhcp snooping information option
+
+Включение или отключение проверки на соответствие MAC-адреса
+клиента ( L2 Header ) и MAC-адреса в DHCP-запросе:
+
+Switch(config)#ip dhcp snooping verify mac-address
+Switch(config)#no ip dhcp snooping verify mac-address по умолчанию, проверка соответствия MAC-адресов включена на свитче, при несовпадении DHCP пакет отбрасывается
+
+# Информация о работе и настройке DHCP snooping:
+Switch#show ip dhcp snooping покажет, какие функции включены, какие vlan и порты настроены как trust
+Switch#show ip dhcp snooping binding покажет, с каких портов были сделаны запросы DHCP и какие адреса были выданы клиентам
+
+# Глобальная активация ARP inspection для vlan:
+Switch(config)#ip arp inspection vlan 10
+
+# Конфигурация trust-портов:
+Switch(config)#interface Fa0/0
+Switch(config-if)#ip arp inspection trust
+
+# Конфигурация ARP ACL-фильтров для статической проверки:
+Switch(config)#ip arp inspection filter ?
+WORD ARP acl name
+
+# Дополнительные проверки ARP inspection 
+Switch(config)#ip arp inspection validate ?
+- dst-mac //Validate destination MAC address //Проверяется соответствие destination MAC-адреса в L2-заголовке и ARP-заголовке
+- src-mac //Validate source MAC address //Проверяется соответствие source MAC-адреса в L2-заголовке и ARP-заголовке
+- ip //Validate IP addresses //Проверяется правильность IP-адреса
+
+Switch#show ip arp inspection ?
+- interfaces Показывает статус (trust state) интерфейса и статистику
+- log Показывает логи ARP inspection
+- statistics Cтатистика ARP-проверок
+- vlan Посмотреть статус для определённого vlan
+
+## IP source guard
+
+# IP source guard включается на интерфейсе коммутатора:
+Switch(config)#interface Fa0/0
+Switch(config-if)#ip verify source
+
+# Конфигурация статического соответствия между mac/vlan/ip/port:
+Switch(config)#ip source binding 0050.7966.6809 vlan 10 192.168.10.105 interface Gi0/3
+
+show ip verify source
+
+# Чтобы проверить не только Source IP, но и MAC-адрес, нужно указать опцию port-security
+Switch(config)#interface Fa0/1
+Switch(config-if)#ip verify source port-security
+
 ## Выход
