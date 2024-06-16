@@ -754,4 +754,137 @@ show ip verify source
 Switch(config)#interface Fa0/1
 Switch(config-if)#ip verify source port-security
 
+## NAT
+- show ip nat translation
+Inside global — адрес и порт отправителя в интернете после процедуры трансляции на маршрутизаторе
+Inside local — адрес и порт отправителя в оригинальном пакете до процедуры трансляции
+Outside local — адрес и порт получателя в оригинальном пакете до процедуры трансляции
+Outside global — адрес и порт получателя пакета в интернете после процедуры трансляции
+
+# Настройка static NAT
+1. Выбираем inside-интерфейс. На него приходит пакет,который должен быть преобразован. Важно: один интерфейс не может быть одновременно inside и outside
+interface GigabitEthernet0/0
+ip nat inside
+2. Выбираем outside-интерфейс
+interface GigabitEthernet0/1
+ip nat outside
+3. Пишем правила обработки пакетов
+ip nat inside source static 192.168.1.10 10.10.10.2
+ip nat outside source static 10.10.10.10 192.168.1.2
+ip route 192.168.1.2 255.255.255.255 10.10.10.10
+или
+ip nat inside source static 192.168.1.10 10.10.10.2
+ip nat outside source static 10.10.10.10 192.168.1.2 add-route
+
+# Dynamic NAT
+Выюираем так же inside и outside  порты
+1. Создаём пул публичных IP-адресов
+ip nat pool pool2 173.10.15.20 173.10.15.110
+2. Создаём acl для фильтрации внутренних IP-адресов
+access-list 100 permit ip 10.10.10.0 0.0.0.255 any
+3. Пишем правило преобразования пакета. В нём описывается, какие пакеты должны быть транслированы
+ip nat inside source list 100 pool2
+
+# PAT Port address translation
+Пишем правило преобразования пакета. В нём описывается, какие пакеты должны быть транслированы
+ip nat inside source static tcp 10.10.10.100 23 173.10.15.12 2323
+
+# PAT overload:
+1. Задаём ACL, фильтрующий внутренние адреса, требующие трансляции
+access-list 100 permit ip 10.10.10.0 0.0.0.255 any
+2. Пишем правило преобразования пакета. В нём описывается, какие пакеты должны быть транслированы
+ip nat inside source list 100 interface GigabitEthernet0/0 overload
+или
+ip nat inside source list 100 pool pool2 overload
+
+
+## VPN
+
+R1#interface Tunnel0
+tunnel mode ipip
+ip address 10.0.0.1 255.255.255.0
+tunnel source 1.1.1.1
+tunnel destination 2.2.2.2
+R1(config)#ip route 192.168.20.0 255.255.255.0 10.0.0.2
+
+R2#interface Tunnel0
+tunnel mode ipip
+ip address 10.0.0.2 255.255.255.0
+tunnel source 2.2.2.2
+tunnel destination 1.1.1.1
+R2(config)#ip route 192.168.10.0 255.255.255.0 10.0.0.1
+
+tunnel source — Source IP-адрес при инкапсуляции
+tunnel destination — Destination IP-адрес при инкапсуляции
+tunnel mode ipip — указание протокола инкапсуляции пакета
+
+## IKE (Internet Key Exchange protocol) — протокол обмена ключами, который используют для формирования IPSec SA (Security Association)
+
+# Алгоритмы хеширования и шифрования первой фазы
+R1(config)#crypto isakmp policy ?
+<1-10000> Priority of protection suite
+
+R1(config)#crypto isakmp policy 10
+R1(config-isakmp)#encryption ?
+3des Three key triple DES
+aes AES — Advanced Encryption Standard.
+des DES — Data Encryption Standard (56 bit keys).
+
+R1(config-isakmp)#hash ?
+md5 Message Digest 5
+sha Secure Hash Standard
+sha256 Secure Hash Standard 2 (256 bit)
+sha384 Secure Hash Standard 2 (384 bit)
+sha512 Secure Hash Standard 2 (512 bit)
+
+R1(config-isakmp)#group ?
+1 Diffie-Hellman group 1 (768 bit)
+14 Diffie-Hellman group 14 (2048 bit)
+15 Diffie-Hellman group 15 (3072 bit)
+16 Diffie-Hellman group 16 (4096 bit)
+19 Diffie-Hellman group 19 (256 bit ecp)
+2 Diffie-Hellman group 2 (1024 bit)
+20 Diffie-Hellman group 20 (384 bit ecp)
+21 Diffie-Hellman group 21 (521 bit ecp)
+24 Diffie-Hellman group 24 (2048 bit, 256 bit subgroup)
+5 Diffie-Hellman group 5 (1536 bit)
+R1(config-isakmp)#group 5
+
+R1(config-isakmp)#authentication ?
+pre-share Pre-Shared Key
+rsa-encr Rivest-Shamir-Adleman Encryption
+rsa-sig Rivest-Shamir-Adleman Signature
+R1(config-isakmp)#authentication pre-share
+R1(config-isakmp)#crypto isakmp key password address Ip-адрес пира
+
+# Конфигурация политик первой и второй фазы
+crypto isakmp policy 10
+encr aes 256
+hash sha512
+authentication pre-share
+group 5
+lifetime 3600
+
+Настраиваем набор политик первой фазы с приоритетом 10. Предпочтение политикам с низшим приоритетом
+crypto isakmp key pass address 100.0.0.2
+
+Настраиваем пароль для адреса пира
+crypto ipsec transform-set SEC55 ah-sha-hmac esp-aes 256 mode transport
+Настраиваем трасформ-сет из протоколов шифрования второй фазы. Определяем набор протоколов ESP и AH
+
+# Конфигурация политик первой и второй фазы
+1. Трафик, который мы хотим зашифровать
+access-list 110 permit ip 192.168.5.0 0.0.0.255 172.16.1.0 0.0.0.255 /
+2. Создаём криптомап, который связывает тип трафика, пир и политики шифрования
+crypto map Sec_MAP 10 ipsec-isakmp
+set peer 100.0.0.2
+set transform-set Sec
+match address 110 
+3. Привязываем к интерфейсу, который используется для установки шифрованного канала
+interface gigabitEthernet 0/0
+ip address 100.0.0.1 255.255.255.0
+crypto map Sec_MAP
+
+show crypto isakmp sa detail
+
 ## Выход
